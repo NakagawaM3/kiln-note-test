@@ -268,7 +268,7 @@ nav button[aria-selected="true"] i{background:var(--c);border-color:var(--ink)}
     <p class="note">「見本」を含みます。焼くほど正確になります。</p>
     <hr class="dots">
     <h2>プログラムの<br>全体の<wbr>時間</h2>
-    <p class="lead">最高温度のねらしが終わるまで。</p>
+    <p class="lead">窯を開けるまで（冷める時間もふくむ）。</p>
     <div class="guide" id="gProg"></div>
   </section>
 
@@ -435,7 +435,7 @@ function renderWizard(){
     b.innerHTML=`<h2>どの<wbr>プログラムで<br>焼きますか？</h2>${opts(mine,{selected:[F.prog],fmt:id=>prog(id).name,sub:id=>id})}
       <label class="other" style="justify-content:space-between">基本プログラム<select id="fBase" style="width:auto"><option value="">使わない</option>${base.map(p=>`<option value="${p.id}" ${p.id===F.prog?'selected':''}>${p.id} ${esc(p.name)}</option>`).join('')}</select></label>
       <div class="hint" id="fPI"></div>${nav('つぎへ')}`;
-    const upd=()=>{const i=progInfo(F.prog);$('fPI').innerHTML=!F.prog?'プログラムを選んでください。':i?`${esc(pname(F.prog))}<br>最高 <b>${i.max}℃</b> ・ 全体 <b>${dur(i.total)}</b><small>全体＝最高温度のねらしが終わるまで。そのあと冷めるのを待ちます。</small>`:`${esc(pname(F.prog))}<small>このプログラムの設定はまだ入っていません。</small>`};
+    const upd=()=>{const i=progInfo(F.prog);$('fPI').innerHTML=!F.prog?'プログラムを選んでください。':i?`${esc(pname(F.prog))}<br>最高 <b>${i.max}℃</b> ・ 全体 <b>${dur(i.total)}</b>${coolText(F.prog,i.total)}`:`${esc(pname(F.prog))}<small>このプログラムの設定はまだ入っていません。</small>`};
     bindOpts(b,{onChange:()=>{F.prog=pickedIn(b)[0];$('fBase').value='';upd()}});
     $('fBase').onchange=e=>{if(!e.target.value)return;F.prog=e.target.value;b.querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed','false'));upd()};upd();
   }else if(F.step===1){
@@ -448,7 +448,7 @@ function renderWizard(){
       <div class="hint" id="fEst"></div>${nav('つぎへ')}`;
     const upd=()=>{const e=F.door?estimate(F.temp,F.door,F.prog):null,i=progInfo(F.prog);
       $('fEst').innerHTML=(e?`${F.temp}℃・${esc(F.door)}なら、閉めるまで<br><b>約 ${dur(e.min)}</b><small>${e.exact?`これまで ${e.n} 回の平均`:`${esc(F.prog)} の設定から計算。扉を開けていると、少しおくれることがあります。`}</small>`:`閉めるまでの目安は、まだ出せません。<small>今回の結果が、次からの目安になります。</small>`)
-        +(i?`<small style="margin-top:6px">全体（焼き上がり）まで 約 ${dur(i.total)}</small>`:'')};
+        +(i?`<small style="margin-top:6px">焼き上がり（プログラムの終わり）まで 約 ${dur(i.total)}${cool(F.prog)?` ・ 窯を開けるまで 約 ${dur(i.total+cool(F.prog).avg)}`:''}</small>`:'')};
     bindOpts(b,{onChange:()=>{F.door=pickedIn(b)[0];upd()}});upd();
   }else if(F.step===3){
     b.innerHTML=`<h2>だれに<br>お知らせ<wbr>しますか？</h2><p class="lead">いくつでも選べます。</p>${opts(S.people,{selected:F.who,cls:'',sub:v=>v==='自分'?'あなた':'共同作業者'})}${nav('つぎへ')}`;
@@ -480,20 +480,24 @@ function renderWizard(){
   const back=$('fBack');if(back)back.onclick=()=>{F.step--;renderWizard()};
 }
 const act=()=>S.firings.find(f=>f.id===S.active);
+// 冷める時間＝焼き上がり→窯を開けた（同じプログラムの平均・11/27）
+const cool=id=>{if(!id)return null;const v=S.firings.filter(f=>f.prog===id&&f.ended&&f.opened&&f.opened>f.ended).map(f=>(f.opened-f.ended)/6e4);return v.length?{avg:v.reduce((a,b)=>a+b)/v.length,n:v.length}:null};
+const coolText=(id,total)=>{const c=cool(id);return c?`<small>そのあと冷める時間 約 ${dur(c.avg)}（${c.n}回の平均）→ 窯を開けるまで 約 ${dur(total+c.avg)}</small>`:'<small>全体＝最高温度のねらしが終わるまで。そのあと冷めるのを待ちます（窯を開けた時刻を入れると、冷める時間もわかるようになります）。</small>'};
 let closer='自分';
 function renderFire(){
   const f=act();$('wizard').hidden=!!f;$('running').hidden=!f;decoState();
   if(!f){newDraft();renderWizard();return}
   const e=estimate(f.temp,f.door,f.prog),st=$('stage'),pi=progInfo(f.prog);
-  const endAt=pi?`焼き上がり ${hm(f.start+pi.total*6e4)}ごろ`:'';
+  const cl=cool(f.prog),endAt=pi?`焼き上がり ${hm(f.start+pi.total*6e4)}ごろ`+(cl?` ・ 開けられるのは ${hm(f.start+(pi.total+cl.avg)*6e4)}ごろ`:''):'';
   if(f.closed){
     st.innerHTML=`${chara('var(--lav)','happy','hero-chara')}
       <div class="state">扉を閉めました</div>
       <div class="big">${hm(f.closed)}</div>
-      <div class="meta">${f.closer==='自分'?'あなた':esc(f.closer)}が閉めました ・ 焼き始めから ${dur((f.closed-f.start)/6e4)}${f.ended?`<br>焼き上がり ${hm(f.ended)}（焼き始めから ${dur((f.ended-f.start)/6e4)}）`:endAt?`<br>${endAt}（そのあと冷めるのを待つ）`:''}</div>
-      ${f.ended?'':'<button type="button" class="pill" id="rEnded" style="margin-top:10px">プログラムが終わった（いま）</button>'}
+      <div class="meta">${f.closer==='自分'?'あなた':esc(f.closer)}が閉めました ・ 焼き始めから ${dur((f.closed-f.start)/6e4)}${f.ended?`<br>焼き上がり ${hm(f.ended)}（焼き始めから ${dur((f.ended-f.start)/6e4)}）`+(f.opened?'':cl?`<br>開けられるのは ${hm(f.ended+cl.avg*6e4)}ごろ（冷める時間 ${cl.n}回の平均）`:''):endAt?`<br>${endAt}（そのあと冷めるのを待つ）`:''}${f.opened?`<br>窯を開けた ${hm(f.opened)}（焼き始めから ${dur((f.opened-f.start)/6e4)}）`:''}</div>
+      ${!f.ended?'<button type="button" class="pill" id="rEnded" style="margin-top:10px">プログラムが終わった（いま）</button>':!f.opened?'<button type="button" class="pill" id="rOpened" style="margin-top:10px">窯を開けた（いま）</button>':''}
       <div class="actions" style="width:100%;margin-top:14px"><button class="btn" id="rFinish">窯出しの記録へ</button><span class="note">冷めて「End」が出てから ・ 時刻はあとから「直す」でも入れられます</span></div>`;
     if($('rEnded'))$('rEnded').onclick=()=>{f.ended=Date.now();save();sync({a:'saveFiring',firing:f});renderFire();renderGuide();peek('焼き上がり、おぼえたよ','var(--lav)','happy')};
+    if($('rOpened'))$('rOpened').onclick=()=>{f.opened=Date.now();save();sync({a:'saveFiring',firing:f});renderFire();renderGuide();peek('冷める時間、おぼえたよ','var(--aqua)','happy')};
     $('rFinish').onclick=()=>{S.active=null;save();L={step:0,id:f.id};renderFire();renderLog();show('log')};
   }else{
     const alert=!!f.buzz;
@@ -570,7 +574,7 @@ function renderLog(){
   const done=S.firings.filter(x=>x.id!==S.active);$('lPastSum').textContent=`これまでの記録（${done.length}）`;
   $('lList').innerHTML=done.map(x=>`<div class="row"><div class="g">${x.rec?x.rec.grade:'<span class="note">まだ</span>'}</div><div>
     <div class="m">${md(x.start)}${x.prog?` ・ ${esc(x.prog)}`:''}${x.temp?` ・ ${x.temp}℃`:''}${x.door?`・${esc(x.door)}`:''}${x.sample?' ・ 見本':''}</div>
-    ${x.closed||x.ended?`<div class="m">${x.closed?`閉めるまで ${dur((x.closed-x.start)/6e4)}`:''}${x.closed&&x.ended?' ・ ':''}${x.ended?`焼き上がりまで ${dur((x.ended-x.start)/6e4)}`:''}${x.approx?'':` （${hm(x.start)}〜）`}</div>`:''}
+    ${x.closed||x.ended||x.opened?`<div class="m">${[x.closed?`閉めるまで ${dur((x.closed-x.start)/6e4)}`:'',x.ended?`焼き上がりまで ${dur((x.ended-x.start)/6e4)}`:'',x.opened?`開けるまで ${dur((x.opened-x.start)/6e4)}`:''].filter(Boolean).join(' ・ ')}${x.approx?'':` （${hm(x.start)}〜）`}</div>`:''}
     ${x.rec?`<div class="t">${[x.rec.clay.join('・'),x.rec.glaze.join('・'),x.rec.issue.join('・')].filter(Boolean).map(esc).join(' ／ ')}</div>
     ${x.rec.memo?`<div class="t">${esc(x.rec.memo)}</div>`:''}`:''}</div><button type="button" data-id="${x.id}">直す</button></div>`).join('');
   $('lList').querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>openRec(+b.dataset.id));
@@ -595,12 +599,14 @@ function openRec(id){
       <span>焼き始め</span><input type="time" id="reStart" value="${f&&!f.approx?tstr(f.start):''}">
       <span>扉を閉めた</span><input type="time" id="reClosed" value="${f&&!f.approx&&f.closed?tstr(f.closed):''}">
       <span>焼き上がり</span><input type="time" id="reEnd" value="${f&&!f.approx&&f.ended?tstr(f.ended):''}">
+      <span>窯を開けた</span><input type="time" id="reOpen" value="${f&&!f.approx&&f.opened?tstr(f.opened):''}">
     </div>
     <div class="fgrid" id="reDur">
       <span>閉めるまで</span>${hmIn('reC',since(f&&f.closed))}
       <span>焼き上がりまで</span>${hmIn('reE',since(f&&f.ended))}
+      <span>開けるまで</span>${hmIn('reO',since(f&&f.opened))}
     </div>
-    <p class="note" style="margin:-4px 0 0">焼き上がり＝窯のプログラムが終わったとき。わからない欄は空のままで大丈夫です。</p>
+    <p class="note" style="margin:-4px 0 0">焼き上がり＝窯のプログラムが終わったとき。窯を開けた＝冷めて扉を開けたとき。わからない欄は空のままで大丈夫です。</p>
     <div class="fgrid">
       <span>プログラム</span><select id="reProg"><option value="">わからない</option>${allP}</select>
       <span>閉めた温度</span><span class="hm"><input type="number" inputmode="numeric" min="100" max="900" step="10" id="reTemp" value="${f&&f.temp?f.temp:''}" style="width:6em">℃</span>
@@ -630,8 +636,9 @@ function openRec(id){
   const prev=()=>{const t=readTimes();if(t.err){$('rePrev').innerHTML=esc(t.err);return}
     const p=$('reProg').value,i=p?progInfo(p):null;
     $('rePrev').innerHTML=(t.closed?`閉めるまで <b>${dur((t.closed-t.start)/6e4)}</b><br>`:'')+(t.ended?`焼き上がりまで <b>${dur((t.ended-t.start)/6e4)}</b>`:'')
+      +(t.opened?`${t.ended?'<br>':''}開けるまで <b>${dur((t.opened-t.start)/6e4)}</b>${t.ended?`（冷める時間 ${dur((t.opened-t.ended)/6e4)}）`:''}`:'')
       +(t.ended&&i?`<small>${esc(p)} の予定は ${dur(i.total)} → ${(()=>{const d=Math.round((t.ended-t.start)/6e4-i.total);return d===0?'予定どおり':d>0?`${d}分おそい`:`${-d}分はやい`})()}</small>`:'')
-      +(!t.closed&&!t.ended?'時間を入れると、ここに出ます。':'')};
+      +(!t.closed&&!t.ended&&!t.opened?'時間を入れると、ここに出ます。':'')};
   $('lEdit').querySelectorAll('input,select').forEach(x=>{x.oninput=prev;x.onchange=prev});
   setMode(RE.mode);
   $('reCancel').onclick=closeRec;
@@ -643,7 +650,7 @@ function openRec(id){
     if($('reTemp').value&&!(temp>=100&&temp<=900)){m.textContent='閉めた温度は100〜900℃で入れてください。';return}
     // 1分ごとの読み直しで S.firings が入れかわっていても、いまの行を直す
     const cur=f&&S.firings.find(x=>x.id===f.id),g=cur||{id:f?f.id:Date.now(),who:f?f.who:[]};
-    Object.assign(g,{start:t.start,closed:t.closed,ended:t.ended,approx:RE.mode==='dur',prog:$('reProg').value,temp:isNaN(temp)?null:temp,door:$('reDoor').value||null,closer:$('reWho').value||null});
+    Object.assign(g,{start:t.start,closed:t.closed,ended:t.ended,opened:t.opened,approx:RE.mode==='dur',prog:$('reProg').value,temp:isNaN(temp)?null:temp,door:$('reDoor').value||null,closer:$('reWho').value||null});
     g.rec=RE.grade?{grade:RE.grade,issue:RE.issue,clay:RE.clay,glaze:RE.glaze,memo:$('reMemo').value.trim()}:null;
     if(!cur)S.firings.push(g);S.firings.sort((a,b)=>(b.start||0)-(a.start||0));
     save();sync({a:'saveFiring',firing:g});closeRec();renderLog();renderGuide();$('lPast').open=true;peek(f?'直したよ！':'入れたよ。目安が育つね','var(--lav)','happy')};
@@ -655,14 +662,15 @@ function readTimes(){
   const [y,mo,d]=dv.split('-').map(Number);
   if(RE.mode==='dur'){
     const mins=k=>{const h=$(k+'H').value,mm=$(k+'M').value;if(h===''&&mm==='')return null;return (+h||0)*60+(+mm||0)};
-    const start=new Date(y,mo-1,d,9,0).getTime(),c=mins('reC'),e=mins('reE');
+    const start=new Date(y,mo-1,d,9,0).getTime(),c=mins('reC'),e=mins('reE'),o=mins('reO');
     if(c!=null&&e!=null&&e<c)return {err:'焼き上がりは、閉めたあとの時間にしてください。'};
-    return {start,closed:c?start+c*6e4:null,ended:e?start+e*6e4:null};
+    if(o!=null&&((e!=null&&o<e)||(c!=null&&o<c)))return {err:'窯を開けたのは、焼き上がりのあとの時間にしてください。'};
+    return {start,closed:c?start+c*6e4:null,ended:e?start+e*6e4:null,opened:o?start+o*6e4:null};
   }
   const at=(v,after)=>{if(!v)return null;const [h,mm]=v.split(':').map(Number);let t=new Date(y,mo-1,d,h,mm).getTime();while(after!=null&&t<=after)t+=864e5;return t};
-  const sv=$('reStart').value;if(!sv)return ($('reClosed').value||$('reEnd').value)?{err:'焼き始めの時刻を入れてください。'}:{start:new Date(y,mo-1,d,9,0).getTime(),closed:null,ended:null};
-  const start=at(sv),closed=at($('reClosed').value,start),ended=at($('reEnd').value,closed||start);
-  return {start,closed,ended};
+  const sv=$('reStart').value;if(!sv)return ($('reClosed').value||$('reEnd').value||$('reOpen').value)?{err:'焼き始めの時刻を入れてください。'}:{start:new Date(y,mo-1,d,9,0).getTime(),closed:null,ended:null,opened:null};
+  const start=at(sv),closed=at($('reClosed').value,start),ended=at($('reEnd').value,closed||start),opened=at($('reOpen').value,ended||closed||start);
+  return {start,closed,ended,opened};
 }
 function closeRec(){RE=null;$('lEdit').innerHTML=''}
 $('lAdd').onclick=()=>openRec(null);
@@ -678,7 +686,10 @@ function renderGuide(){
   const mine=PROGS.filter(p=>p.mine),pmax=Math.max(...mine.map(p=>progInfo(p.id)?.total||0),1);
   const hd=m=>dur(m).replace('時間','<small style="font-size:.8rem">時間</small>').replace('分','<small style="font-size:.8rem">分</small>');
   const real=id=>{const v=S.firings.filter(f=>f.prog===id&&f.ended&&f.start).map(f=>(f.ended-f.start)/6e4);return v.length?{avg:v.reduce((a,b)=>a+b)/v.length,n:v.length}:null};
-  $('gProg').innerHTML=mine.map(p=>{const i=progInfo(p.id),r=real(p.id);return `<div class="gcard"><div class="k">${esc(p.name)}<small>${p.id}${i?` ・ 最高 ${i.max}℃`:' ・ 設定はまだ'}</small>${r?`<small>実際は 平均 ${dur(r.avg)}（${r.n}回）</small>`:''}</div><div class="v">${i?hd(i.total):'—'}</div>${i?`<div class="bar"><i style="width:${(i.total/pmax*100).toFixed(0)}%"></i></div>`:''}</div>`}).join('');
+  const opn=id=>{const v=S.firings.filter(f=>f.prog===id&&f.opened&&f.start).map(f=>(f.opened-f.start)/6e4);return v.length?{avg:v.reduce((a,b)=>a+b)/v.length,n:v.length}:null};
+  const whole=p=>{const i=progInfo(p.id),o=opn(p.id),c=cool(p.id);return o?o.avg:i&&c?i.total+c.avg:i?i.total:0};
+  const wmax=Math.max(...mine.map(whole),pmax);
+  $('gProg').innerHTML=mine.map(p=>{const i=progInfo(p.id),r=real(p.id),o=opn(p.id),c=cool(p.id),w=whole(p);return `<div class="gcard"><div class="k">${esc(p.name)}<small>${p.id}${i?` ・ 最高 ${i.max}℃`:' ・ 設定はまだ'}</small>${i?`<small>プログラム ${dur(i.total)}${r?`（実際は 平均 ${dur(r.avg)}・${r.n}回）`:''}</small>`:''}${c?`<small>冷める 平均 ${dur(c.avg)}（${c.n}回）</small>`:i?'<small>＋冷める時間（窯を開けた時刻を入れるとたまります）</small>':''}</div><div class="v">${w?hd(w):'—'}</div>${w?`<div class="bar"><i style="width:${(w/wmax*100).toFixed(0)}%"></i></div>`:''}</div>`}).join('');
 }
 
 // ===== 設定 =====
