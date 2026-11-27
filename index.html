@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#f1f0ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="窯のノート">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>窯のノート</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+/* Layout: グレーがかったオフホワイトの余白が主役。細い墨の線で囲んだ部品＋パステルの差し色。
+   飾りの図形は画面の右上に3つだけ、ゆっくり動く。1画面1問・文字は最小限。明るい画面に固定。 */
+:root{
+  color-scheme:light;
+  --bg:#f1f0ec;        /* 白磁グレー */
+  --paper:#fcfbf8;
+  --ink:#1f1f1d;
+  --sub:#7a7974;
+  --hair:#d9d7d0;
+  --lav:#c8b6f2;       /* ラベンダー */
+  --lemon:#f4e46a;     /* レモン */
+  --coral:#f5866b;     /* コーラル */
+  --aqua:#4cc3de;      /* 水色 */
+  --f-ui:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Hiragino Sans",system-ui,sans-serif;
+  --f-num:"Jost","Zen Maru Gothic",system-ui,sans-serif;
+  --tone:var(--coral);
+  --line:1.5px solid var(--ink);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+html,body{background:var(--bg)}
+body{color:var(--ink);font-family:var(--f-ui);font-weight:500;font-size:16px;line-height:1.7;-webkit-tap-highlight-color:transparent}
+.wrap{position:relative;max-width:480px;margin:0 auto;padding-left:max(22px,env(safe-area-inset-left,0px));padding-right:max(22px,env(safe-area-inset-right,0px));padding-block:10px 130px;min-height:100%;isolation:isolate}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-block:22px 6px;position:relative;z-index:2}
+.brand{display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0;font-weight:900;font-size:1rem;letter-spacing:.12em}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--tone);border:var(--line)}
+.brand small{font-family:var(--f-num);font-weight:500;font-size:.62rem;letter-spacing:.12em;border:1px solid var(--ink);border-radius:99px;padding:0 7px}
+/* 設定の入口（案C 11/26 先生が選択）：「設定」の札＋後ろから小さなうつわが顔を出す */
+.setC{position:relative;display:inline-flex;isolation:isolate}
+.setpill{position:relative;z-index:1;display:inline-flex;align-items:center;gap:7px;font:inherit;font-weight:700;font-size:.82rem;letter-spacing:.1em;color:var(--ink);background:var(--paper);border:var(--line);border-radius:99px;height:36px;padding:0 14px 0 12px;cursor:pointer;white-space:nowrap}
+.setpill::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--lav);border:1.2px solid var(--ink)}
+.setpill[aria-pressed="true"]::before{background:var(--ink)}
+.testband{position:sticky;top:0;z-index:50;text-align:center;font-size:.75rem;letter-spacing:.1em;padding:3px 0;background:var(--lemon);border-bottom:1px solid var(--ink)}
+.peeker{position:absolute;left:50%;top:-31px;width:44px;height:39px;margin-left:-22px;z-index:0;pointer-events:none;overflow:visible}
+@media (prefers-reduced-motion:no-preference){
+  /* 開いたときに1回顔を出し、はじめの3回だけ跳ねて、あとは静かにする（見張り中に目を取られないように） */
+  .peeker{transform:translateY(18px);animation:peekup .55s cubic-bezier(.3,1.6,.5,1) .7s forwards,hop 7s ease-in-out 2.2s 3}
+  @keyframes peekup{to{transform:translateY(0)}}
+  @keyframes hop{0%,86%,100%{transform:translateY(0) rotate(0)}90%{transform:translateY(-4px) rotate(-8deg)}94%{transform:translateY(0) rotate(6deg)}}
+  .peeker .eye{transform-box:fill-box;transform-origin:center;animation:blinkE 5.5s 1.6s infinite}
+  @keyframes blinkE{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+}
+/* 飾りの図形：見出しの右の専用の席（幅70px）。見出しと説明はこの席に入らない幅にしてある */
+.decos{position:absolute;top:calc(72px + 22px);right:max(22px,env(safe-area-inset-right,0px));width:70px;height:96px;z-index:0;pointer-events:none}
+.decos svg{position:absolute;overflow:visible}
+.d-ring{top:0;right:4px;width:40px;height:40px}
+.d-tri{top:50px;left:0;width:24px;height:24px}
+.d-star{top:62px;right:0;width:28px;height:28px}
+section.panel h2{max-width:min(11em,calc(100% - 78px));word-break:keep-all;overflow-wrap:anywhere}
+section.panel .lead{max-width:calc(100% - 78px)}
+body.running .decos{display:none}
+@media (prefers-reduced-motion:no-preference){
+  .d-ring{animation:spin 18s linear infinite}
+  .d-tri{animation:sway 5s ease-in-out infinite}
+  .d-star{animation:twinkle 3.6s ease-in-out infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes sway{50%{transform:translate(4px,-6px) rotate(14deg)}}
+  @keyframes twinkle{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(.78) rotate(45deg)}}
+}
+section.panel{display:flex;flex-direction:column;gap:26px;padding-top:22px;position:relative;z-index:1}
+h2{font-weight:900;font-size:1.65rem;line-height:1.45;margin:0;letter-spacing:.04em;text-wrap:balance;max-width:11em}
+.lead{color:var(--sub);font-size:.88rem;margin:-14px 0 0}
+.tag{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;font-family:var(--f-num);font-size:.72rem;letter-spacing:.14em;border:1px solid var(--ink);border-radius:99px;padding:1px 11px;background:var(--paper)}
+.tag::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--tone)}
+.dots{border:0;border-top:1.5px dotted var(--ink);opacity:.5;margin:0}
+/* 進み具合 */
+.steps{display:flex;gap:6px;align-items:center}
+.steps i{width:8px;height:8px;border-radius:50%;border:1.2px solid var(--ink);background:var(--paper)}
+.steps i.on{background:var(--tone);width:22px;border-radius:5px}
+@media (prefers-reduced-motion:no-preference){.steps i{transition:width .3s,background .3s}}
+/* 選ぶもの */
+.opts{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.opt{font:inherit;font-weight:700;font-size:1.05rem;color:var(--ink);background:var(--paper);border:var(--line);border-radius:18px;padding:16px 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:66px}
+.opt small{font-size:.7rem;color:var(--sub);font-weight:500}
+.opt[aria-pressed="true"]{background:var(--tone);box-shadow:3px 3px 0 var(--ink)}
+.opt .num{font-family:var(--f-num);font-weight:500;font-size:1.35rem}
+@media (prefers-reduced-motion:no-preference){.opt{transition:transform .15s,box-shadow .15s}.opt:active{transform:scale(.96)}.opt[aria-pressed="true"]{animation:pop .3s}@keyframes pop{40%{transform:scale(1.05)}}}
+.opts.three{grid-template-columns:repeat(3,1fr)}
+.opts.four{grid-template-columns:repeat(4,1fr)}
+.opts.four .opt{font-size:1.7rem;padding:12px 0}
+.other{display:flex;align-items:center;gap:8px;color:var(--sub);font-size:.88rem}
+.other input{width:6.5em}
+.row>button,.mini{font:inherit;font-size:.8rem;color:var(--ink);background:var(--paper);border:1px solid var(--ink);border-radius:99px;padding:3px 12px;cursor:pointer;white-space:nowrap}
+.fgrid{display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center;font-size:.88rem}
+.fgrid input,.fgrid select{min-width:0;padding:8px 10px}
+.hm{display:flex;align-items:center;gap:6px}.hm input{width:4.2em}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-height:44px;text-align:left}
+input[type=number],input[type=text],input[type=date],input[type=time],select,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--paper);border:var(--line);border-radius:14px;padding:10px 12px;width:100%}
+textarea{min-height:84px;resize:vertical}
+.hint{background:var(--paper);border-radius:18px;padding:14px 18px;font-size:.9rem;border:1.5px dashed var(--ink)}
+.hint b{font-family:var(--f-num);font-weight:500;font-size:1.5rem}
+.hint small{display:block;color:var(--sub);font-size:.74rem}
+.check{display:flex;gap:12px;align-items:center;font-size:.95rem;cursor:pointer;background:var(--paper);border:var(--line);border-radius:18px;padding:14px 16px}
+.check input{width:24px;height:24px;flex:none;accent-color:var(--ink)}
+.summary{display:flex;flex-direction:column;border-top:1.5px dotted rgba(31,31,29,.5)}
+.summary div{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 2px;border-bottom:1.5px dotted rgba(31,31,29,.5);font-size:.95rem}
+.summary span{color:var(--sub);font-size:.85rem}
+.summary select{width:auto;padding:4px 10px;font-size:15px;border-radius:10px}
+/* ボタン（右端に → の丸） */
+.actions{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.btn{position:relative;font:inherit;font-weight:700;font-size:1.05rem;letter-spacing:.06em;background:var(--paper);color:var(--ink);border:var(--line);border-radius:99px;padding:15px 56px 15px 22px;cursor:pointer;width:100%;text-align:left}
+.btn::after{content:"→";position:absolute;right:9px;top:50%;width:36px;height:36px;margin-top:-18px;border-radius:50%;border:var(--line);background:var(--paper);display:grid;place-items:center;font-family:var(--f-num);font-size:1rem;line-height:1}
+.btn.tone{background:var(--tone)}
+.btn.quiet{background:none;border:0;color:var(--sub);font-weight:500;font-size:.88rem;padding:8px;text-align:center}
+.btn.quiet::after{display:none}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+@media (prefers-reduced-motion:no-preference){.btn::after{transition:transform .2s}.btn:not(:disabled):hover::after,.btn:not(:disabled):active::after{transform:translateX(3px)}}
+:focus-visible{outline:3px solid var(--aqua);outline-offset:3px}
+.msg{min-height:1.3em;font-size:.86rem;color:#c4482c;text-align:center}
+/* 焼成中 */
+.stagebox{position:relative;isolation:isolate;margin-right:8px}
+.stagebox::before{content:"";position:absolute;inset:0;transform:translate(8px,9px);background:var(--tone);border:var(--line);border-radius:32px;z-index:-1}
+.stage{background:var(--paper);border:var(--line);border-radius:32px;padding:26px 20px 22px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.stage .state{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;border:1px solid var(--ink);border-radius:99px;padding:1px 12px}
+.live{width:7px;height:7px;border-radius:50%;background:#35b27a}
+@media (prefers-reduced-motion:no-preference){.live{animation:blink 2.2s infinite}@keyframes blink{50%{opacity:.2}}}
+.big{font-family:var(--f-num);font-weight:500;font-size:3.6rem;line-height:1.1;letter-spacing:.01em}
+.big.jp{font-family:var(--f-ui);font-weight:900;font-size:2.2rem;padding-block:6px}
+.big small{font-family:var(--f-ui);font-size:1rem;color:var(--sub);margin-left:4px}
+.meta{font-size:.8rem;color:var(--sub)}
+.closer{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.pill{font:inherit;font-size:.85rem;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:99px;padding:5px 14px;cursor:pointer}
+.pill[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+details{padding-top:4px}
+summary{cursor:pointer;color:var(--sub);font-size:.88rem;list-style:none;display:flex;justify-content:center;gap:6px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"＋"}
+details[open] summary::after{content:"－"}
+.detail-body{display:flex;flex-direction:column;gap:12px;padding-top:14px}
+.line{background:#a6bde0;border:var(--line);border-radius:18px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.bubble{background:#fff;color:#222;border-radius:16px;padding:9px 13px;font-size:.85rem;max-width:90%;line-height:1.55}
+.bubble .lb{display:block;margin-top:8px;text-align:center;border-top:1px solid #e5e5e5;padding-top:6px;color:#06a64a;font-weight:700}
+.bubble small{display:block;color:#888;font-size:.68rem}
+/* 記録一覧・目安 */
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:start;padding:14px 0;border-bottom:1.5px dotted rgba(31,31,29,.45)}
+.row>div{min-width:0}
+.row .g{font-size:1.5rem;text-align:center;line-height:1.3}
+.row .m{font-size:.76rem;color:var(--sub)}
+.row .t{font-size:.88rem}
+.guide{display:flex;flex-direction:column;gap:12px}
+.gcard{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px 12px;background:var(--paper);border:var(--line);border-radius:22px;padding:16px 20px}
+.gcard .k{font-weight:700;font-size:.95rem}
+.gcard .k small{display:block;color:var(--sub);font-size:.72rem;font-weight:500}
+.gcard .v{font-family:var(--f-num);font-weight:500;font-size:1.7rem}
+.gcard .v small{font-family:var(--f-ui);font-size:.75rem;margin:0 2px}
+.bar{grid-column:1/-1;height:8px;border-radius:4px;border:1px solid var(--ink);background:var(--bg);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--tone)}
+.note{font-size:.76rem;color:var(--sub)}
+.photo{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.photo label{display:inline-flex;align-items:center;gap:8px;border:1.5px dashed var(--ink);border-radius:18px;padding:14px 20px;cursor:pointer;background:var(--paper)}
+.photo input{position:absolute;opacity:0;width:1px;height:1px}
+.thumb{width:64px;height:64px;border-radius:14px;object-fit:cover;border:var(--line)}
+.person{display:flex;justify-content:space-between;align-items:center;padding:12px 2px;border-bottom:1.5px dotted rgba(31,31,29,.45)}
+.person button{font:inherit;font-size:.8rem;color:var(--ink);background:var(--paper);border:1px solid var(--ink);border-radius:99px;padding:3px 12px;cursor:pointer}
+.addrow{display:flex;gap:8px}
+.addrow .btn{width:auto;flex:none;white-space:nowrap;padding:10px 20px;text-align:center;font-size:.95rem}
+.addrow .btn::after{display:none}
+.qrbox{display:flex;gap:14px;align-items:center;background:var(--paper);border:var(--line);border-radius:22px;padding:14px}
+.qr{width:80px;height:80px;flex:none;border-radius:8px;background:repeating-conic-gradient(var(--ink) 0 25%,var(--paper) 0 50%) 0 0/13px 13px;border:5px solid var(--paper);outline:1px solid var(--ink)}
+/* 自作プログラムの編集 */
+.pform{background:var(--paper);border:var(--line);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px;scroll-margin-top:12px}
+.pgrid{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:8px 10px;align-items:center;font-size:.85rem}
+.pgrid input{padding:8px 10px;min-width:0}
+.person small.note{font-size:.72rem}
+/* ブザーの聞き取り */
+.ear{background:var(--paper);border:var(--line);border-radius:22px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.ear .st{font-weight:700;font-size:1.05rem;text-align:center}
+.ear .st small{display:block;color:var(--sub);font-weight:500;font-size:.74rem}
+.meter{position:relative;height:14px;border-radius:7px;border:1px solid var(--ink);background:var(--bg);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--aqua)}
+.meter i.hit{background:var(--coral)}
+.meter b{position:absolute;top:-2px;bottom:-2px;width:0;border-left:1.5px dashed var(--ink)}
+@media (prefers-reduced-motion:no-preference){.meter i{transition:width .1s}}
+.ear .row2{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.ear .row2 .pill{padding:8px 16px;font-size:.9rem}
+.ear .row2 label.pill{position:relative}
+.ear .row2 input{position:absolute;opacity:0;width:1px;height:1px}
+/* うつわ（キャラクター） */
+.chara{width:64px;height:58px;flex:none;overflow:visible}
+.hero-chara{width:96px;height:88px;margin-bottom:2px;overflow:visible}
+@media (prefers-reduced-motion:no-preference){.hero-chara.bob{animation:bob 3s ease-in-out infinite}@keyframes bob{50%{transform:translateY(-5px) rotate(-3deg)}}
+  .hero-chara.shake{animation:shake .5s ease-in-out 3}@keyframes shake{25%{transform:rotate(-7deg)}75%{transform:rotate(7deg)}}}
+.peek{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(78px + env(safe-area-inset-bottom,0px));display:flex;align-items:flex-end;gap:6px;z-index:6;pointer-events:none;transform:translateY(140%);opacity:0}
+.peek.show{transform:none;opacity:1}
+@media (prefers-reduced-motion:no-preference){.peek{transition:transform .5s cubic-bezier(.3,1.6,.5,1),opacity .2s}}
+.peek .say{background:var(--paper);border:var(--line);border-radius:18px 18px 4px 18px;padding:7px 13px;font-size:.84rem;font-weight:700;max-width:190px}
+/* タブ */
+nav{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:var(--line);display:grid;grid-template-columns:repeat(3,1fr);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);z-index:5}
+nav button{font:inherit;background:none;border:0;color:var(--sub);padding:10px 0 12px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.76rem;cursor:pointer;letter-spacing:.06em}
+nav button i{width:12px;height:12px;border-radius:50%;border:1.2px solid currentColor}
+nav button[aria-selected="true"]{color:var(--ink);font-weight:700}
+nav button[aria-selected="true"] i{background:var(--c);border-color:var(--ink)}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="decos" aria-hidden="true">
+    <svg class="d-ring" viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" fill="none" stroke="var(--lemon)" stroke-width="9"/><circle cx="22" cy="22" r="21.2" fill="none" stroke="var(--ink)" stroke-width="1.3"/><circle cx="22" cy="22" r="12.6" fill="none" stroke="var(--ink)" stroke-width="1.3"/></svg>
+    <svg class="d-tri" viewBox="0 0 30 30"><path d="M4 4 L27 15 L4 26 Z" fill="var(--coral)" stroke="var(--ink)" stroke-width="1.3" stroke-linejoin="round"/></svg>
+    <svg class="d-star" viewBox="0 0 34 34"><path d="M17 1 C18.5 12 22 15.5 33 17 C22 18.5 18.5 22 17 33 C15.5 22 12 18.5 1 17 C12 15.5 15.5 12 17 1 Z" fill="var(--aqua)"/></svg>
+  </div>
+  <header>
+    <div class="brand"><span class="dot"></span>窯のノート<small id="sync">…</small></div>
+    <span class="setC" id="gearBox"><button type="button" class="setpill" id="gear" aria-pressed="false">設定</button><svg class="peeker" viewBox="0 6 80 60" aria-hidden="true">
+      <path d="M8 24 Q8 60 40 60 Q72 60 72 24 Z" fill="#fcfbf8"/>
+      <path d="M8 24 Q8 31 9.5 35 Q14 31 18 36 Q22 42 27 35 Q32 29 37 34 Q42 40 47 33 Q52 28 57 35 Q61 40 65 34 Q69 30 70.5 35 Q72 31 72 24 Z" fill="var(--lav)"/>
+      <path d="M8 24 Q8 60 40 60 Q72 60 72 24" fill="none" stroke="#1f1f1d" stroke-width="2.6" stroke-linejoin="round"/>
+      <ellipse cx="40" cy="24" rx="32" ry="6.5" fill="var(--lav)" stroke="#1f1f1d" stroke-width="2.6"/>
+      <ellipse cx="40" cy="24.6" rx="26" ry="4" fill="#fcfbf8" stroke="#1f1f1d" stroke-width="2"/>
+      <circle class="eye" cx="32" cy="40" r="3.4" fill="#1f1f1d"/><circle class="eye" cx="48" cy="40" r="3.4" fill="#1f1f1d"/>
+      <circle cx="24" cy="46" r="4" fill="#f5866b" opacity=".55"/><circle cx="56" cy="46" r="4" fill="#f5866b" opacity=".55"/>
+    </svg></span>
+  </header>
+
+  <section class="panel" id="p-fire">
+    <div id="wizard">
+      <div class="steps" id="fSteps" aria-hidden="true"></div>
+      <div id="fBody" style="display:flex;flex-direction:column;gap:26px;padding-top:20px"></div>
+    </div>
+    <div id="running" hidden style="display:flex;flex-direction:column;gap:22px">
+      <div class="stagebox"><div class="stage" id="stage"></div></div>
+      <details id="rDetails">
+        <summary>くわしく</summary>
+        <div class="detail-body">
+          <div class="meta" id="rInfo" style="text-align:center"></div>
+          <span class="tag">LINE</span>
+          <div class="line" id="lineDemo"></div>
+          <button class="btn quiet" type="button" id="simBuzz">ブザーが鳴ったことにする（試し）</button>
+          <button class="btn quiet" type="button" id="rCancel">まちがえて始めたので取り消す</button>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="panel" id="p-log" hidden>
+    <div class="steps" id="lSteps" aria-hidden="true"></div>
+    <div id="lBody" style="display:flex;flex-direction:column;gap:26px"></div>
+    <hr class="dots">
+    <button class="btn quiet" type="button" id="lAdd">＋ 前に焼いた記録を入れる</button>
+    <div id="lEdit"></div>
+    <details id="lPast"><summary id="lPastSum">これまでの記録</summary><p class="note" style="text-align:center;margin:10px 0 0">「直す」で時間や出来をあとから直せます。</p><div class="rows" id="lList"></div></details>
+  </section>
+
+  <section class="panel" id="p-guide" hidden>
+    <span class="tag">GUIDE</span>
+    <h2>扉を<wbr>閉めるまで、<br>どのくらい？</h2>
+    <div class="guide" id="gList"></div>
+    <p class="note">「見本」を含みます。焼くほど正確になります。</p>
+    <hr class="dots">
+    <h2>プログラムの<br>全体の<wbr>時間</h2>
+    <p class="lead">最高温度のねらしが終わるまで。</p>
+    <div class="guide" id="gProg"></div>
+  </section>
+
+  <section class="panel" id="p-set" hidden>
+    <span class="tag">SETTING</span>
+    <h2>共同作業者</h2>
+    <p class="lead">扉を閉めるのを頼める人。</p>
+    <div id="pList"></div>
+    <div class="addrow"><input type="text" id="pName" placeholder="名前（例：Aさん）" aria-label="共同作業者の名前"><button class="btn" type="button" id="pAdd">追加</button></div>
+    <div class="qrbox"><div class="qr" role="img" aria-label="LINE 友だち追加用QRコードの見本"></div>
+      <p class="note" style="margin:0">LINE のお知らせは準備中です。できたら、このQRで友だち追加して「登録」と送るだけになります。</p></div>
+    <hr class="dots">
+    <h2>直して<wbr>ほしいこと</h2>
+    <p class="lead">使いにくいところや、ほしい機能を書いて送ってください。</p>
+    <div class="pform">
+      <label class="other" style="justify-content:space-between">どの画面のこと？<select id="rqScreen" style="width:auto"><option>焼く</option><option>記録</option><option>目安</option><option>設定</option><option>そのほか</option></select></label>
+      <textarea id="rqText" maxlength="2000" placeholder="例：記録の画面で、写真を3枚まで入れたい" aria-label="直してほしいこと"></textarea>
+      <div class="actions"><button class="btn tone" type="button" id="rqSend">送る</button><div class="msg" id="rqMsg" role="status"></div></div>
+    </div>
+    <div class="rows" id="rqList"></div>
+    <hr class="dots">
+    <h2>自作<wbr>プログラム</h2>
+    <p class="lead">窯の「B 自作」に入れた設定。</p>
+    <div id="prList"></div>
+    <button class="btn quiet" type="button" id="prNew">＋ プログラムを追加</button>
+    <div id="prEdit"></div>
+    <div hidden><!-- ブザーの聞き取りテスト：11/25 先生の端末でマイク・ファイルとも動かず、いったんしまう（判定の中身は本番で使う） -->
+    <hr class="dots">
+    <h2>ブザーの<br>聞き取りテスト</h2>
+    <p class="lead">窯の「ピー」が聞き分けられるか、ためします。</p>
+    <div class="ear">
+      <div class="st" id="earSt" role="status">まだ聞いていません<small>「マイクで聞く」を押して、ブザーの動画を流してください</small></div>
+      <div class="meter" aria-hidden="true"><i id="earBar"></i><b id="earLine"></b></div>
+      <div class="row2">
+        <button type="button" class="pill" id="earMic">マイクで聞く</button>
+        <label class="pill">動画ファイルで試す<input type="file" id="earFile" accept="video/*,audio/*"></label>
+      </div>
+    </div>
+    </div>
+    <hr class="dots">
+    <h2>つなぎ先</h2>
+    <p class="lead" id="cfgInfo"></p>
+    <button class="btn quiet" type="button" id="cfgReset">つなぎ直す</button>
+    <div class="msg" id="setMsg" role="status" style="color:#2f9a68"></div>
+  </section>
+
+  <section class="panel" id="p-setup" hidden>
+    <span class="tag">START</span>
+    <h2>はじめに</h2>
+    <p class="lead">記録をしまうスプレッドシートとつなぎます。一度だけです。</p>
+    <label class="other" style="flex-direction:column;align-items:stretch">ウェブアプリの URL<input type="text" id="cfgUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%"></label>
+    <label class="other" style="flex-direction:column;align-items:stretch">合言葉<input type="text" id="cfgKey" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="xxxx-xxxx-xxxx" style="width:100%"></label>
+    <div class="actions"><button class="btn tone" type="button" id="cfgGo">つなぐ</button><div class="msg" id="cfgMsg" role="status"></div></div>
+  </section>
+</div>
+
+<div class="peek" id="peek" aria-live="polite"><div class="say" id="peekSay"></div><div id="peekChara"></div></div>
+
+<nav role="tablist" aria-label="画面の切り替え">
+  <button role="tab" data-t="fire" style="--c:var(--coral)" aria-selected="true"><i></i>焼く</button>
+  <button role="tab" data-t="log" style="--c:var(--lemon)" aria-selected="false"><i></i>記録</button>
+  <button role="tab" data-t="guide" style="--c:var(--aqua)" aria-selected="false"><i></i>目安</button>
+</nav>
+
+<script>
+// 試験版かどうかは開いている場所で決まる（11/27）。本番の保存の名前は今までと同じ kiln-note-…
+const TEST=/\/kiln-note-test\//.test(location.pathname)||location.protocol==='file:'||/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const NS=TEST?'kiln-test-':'kiln-note-';
+const KEY=NS+'v1';
+if(TEST)document.addEventListener('DOMContentLoaded',()=>{const b=document.createElement('div');b.className='testband';b.textContent='試験版（本番の記録とは別です）';document.body.prepend(b);document.title='【試験版】'+document.title});
+const TONE={fire:'var(--coral)',log:'var(--lemon)',guide:'var(--aqua)',set:'var(--lav)'};
+const OPT={temps:[300,350,400,450],door:['少し','指1本','指2本','指3本'],
+  clay:['磁器'],glaze:['ケイ基礎','無鉛絵の具','ブライト金6%'],
+  issue:['問題なし','金がくすむ','金がはがれる','色が薄い','色が濃い','ピンホール','ちぢれ','ひび・割れ']};
+// プログラム（DMT-01 取扱説明書 p.「基本プログラム温度表」＋知人の自作 11/25）
+// steps: [分, 温度] ＝その温度まで上げる ／ [分] ＝その温度のまま保つ（ねらし）。ねらし1は温度2のあと、ねらし2は温度3のあと。
+const ROOM=20;
+const P=(id,name,steps,mine=false)=>({id,name,steps,mine});
+const HON=(k,t,m)=>P('A-'+k,`本焼き ${t}℃`,[[210,560],[220,1050],[m,t],[20]]);
+const BASE=[P('A-0','乾燥',[[300,200]]),P('A-1','試運転',[[270,400],[30]]),P('A-2','素焼き',[[420,560],[90,700],[10]]),P('A-3','絵付・楽焼き',[[210,560],[90,800]]),
+  HON(4,1220,180),HON(5,1230,180),HON(6,1240,240),HON(7,1250,240),HON(8,1260,270),HON(9,1270,270)];
+// 自作（B）は窯の入力欄と同じ形で持つ：時間1/温度1・時間2/温度2・ねらし1・時間3/温度3・ねらし2
+const FIELDS=['t1','c1','t2','c2','n1','t3','c3','n2'];
+const seedProgs=()=>[
+  {id:'B-1',name:'乾燥',v:null},
+  {id:'B-2',name:'素焼き小物',v:{t1:240,c1:300,t2:360,c2:820}},
+  {id:'B-3',name:'素焼き大物',v:{t1:360,c1:300,t2:300,c2:600,t3:180,c3:820}},
+  {id:'B-4',name:'酸化小物',v:{t1:420,c1:800,t2:150,c2:1000,t3:210,c3:1275}},
+  {id:'B-5',name:'酸化大物',v:{t1:480,c1:800,t2:360,c2:1275}},
+  {id:'B-6',name:'上絵',v:{t1:120,c1:300,t2:120,c2:500,n1:20,t3:120,c3:850}},
+  {id:'B-7',name:'金',v:{t1:180,c1:500,t2:140,c2:690,n1:20}}];
+function toSteps(v){if(!v)return null;const s=[],g=k=>+v[k]||0;
+  if(g('t1')||g('c1'))s.push([g('t1'),g('c1')]);if(g('t2')||g('c2'))s.push([g('t2'),g('c2')]);if(g('n1'))s.push([g('n1')]);
+  if(g('t3')||g('c3'))s.push([g('t3'),g('c3')]);if(g('n2'))s.push([g('n2')]);return s.length?s:null}
+let PROGS=[];
+function refreshProgs(){S.progs.sort((a,b)=>+a.id.slice(2)-+b.id.slice(2));PROGS=[...S.progs.map(p=>P(p.id,p.name,toSteps(p.v),true)),...BASE]}
+const prog=id=>PROGS.find(p=>p.id===id);
+const pname=id=>{const p=prog(id);return p?`${p.id} ${p.name}`:String(id||'—')};
+function progInfo(id){const p=prog(id);if(!p||!p.steps)return null;let t=0,max=ROOM;p.steps.forEach(s=>{t+=s[0];if(s.length>1)max=Math.max(max,s[1])});return {total:t,max}}
+function progReach(id,temp){const p=prog(id);if(!p||!p.steps)return null;let t=0,T=ROOM;
+  for(const [m,to] of p.steps){if(to===undefined){t+=m;continue}if(temp<=to&&to>T)return t+m*Math.max(0,temp-T)/(to-T);t+=m;T=to}return null}
+function seed(){return {people:['自分'],progs:[],active:null,last:{prog:'B-7',temp:450,door:'指2本',who:['自分']},firings:[]}}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){S=null}if(!S)S=seed();refreshProgs();
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+const $=id=>document.getElementById(id);
+const hm=t=>{const d=new Date(t);return `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`};
+const dur=m=>`${Math.floor(m/60)}時間${String(Math.round(m%60)).padStart(2,'0')}分`;
+const md=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()}`};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ===== うつわ（キャラクター） =====
+function chara(color,mood='wait',cls='chara'){
+  const eyes=mood==='happy'?'<path d="M29 39q3-4 6 0M45 39q3-4 6 0" stroke="#2b2b29" stroke-width="2.2" fill="none" stroke-linecap="round"/>'
+    :'<circle cx="32" cy="39" r="2.6" fill="#2b2b29"/><circle cx="48" cy="39" r="2.6" fill="#2b2b29"/>';
+  const mouth=mood==='alert'?'<ellipse cx="40" cy="47" rx="2.6" ry="3" fill="#2b2b29"/>':mood==='happy'?'<path d="M36 45q4 4 8 0" stroke="#2b2b29" stroke-width="2" fill="none" stroke-linecap="round"/>':'<path d="M37.5 46q2.5 2 5 0" stroke="#2b2b29" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+  return `<svg class="${cls}" viewBox="0 0 80 72" aria-hidden="true">
+    <ellipse cx="44" cy="68" rx="18" ry="3" fill="#1f1f1d" opacity=".12"/>
+    <rect x="30" y="58" width="20" height="7" rx="2.5" fill="#fcfbf8" stroke="#1f1f1d" stroke-width="1.4"/>
+    <path d="M8 24 Q8 60 40 60 Q72 60 72 24 Z" fill="#fcfbf8"/>
+    <path d="M8 24 Q8 31 9.5 35 Q14 31 18 36 Q22 42 27 35 Q32 29 37 34 Q42 40 47 33 Q52 28 57 35 Q61 40 65 34 Q69 30 70.5 35 Q72 31 72 24 Z" fill="${color}"/>
+    <path d="M8 24 Q8 60 40 60 Q72 60 72 24" fill="none" stroke="#1f1f1d" stroke-width="1.6" stroke-linejoin="round"/>
+    <ellipse cx="40" cy="24" rx="32" ry="6.5" fill="${color}" stroke="#1f1f1d" stroke-width="1.6"/>
+    <ellipse cx="40" cy="24.6" rx="26" ry="4" fill="#fcfbf8" stroke="#1f1f1d" stroke-width="1.2"/>
+    ${eyes.replace(/#2b2b29/g,'#1f1f1d')}${mouth.replace(/#2b2b29/g,'#1f1f1d')}
+    <circle cx="24" cy="45" r="3.2" fill="#f5866b" opacity=".55"/><circle cx="56" cy="45" r="3.2" fill="#f5866b" opacity=".55"/>
+    <path d="M70 8 l2 4 4 2 -4 2 -2 4 -2 -4 -4 -2 4 -2z" fill="#4cc3de"/>
+  </svg>`;
+}
+let peekTimer;
+function peek(text,color,mood){clearTimeout(peekTimer);$('peekSay').textContent=text;$('peekChara').innerHTML=chara(color,mood);
+  const p=$('peek');p.classList.remove('show');requestAnimationFrame(()=>requestAnimationFrame(()=>p.classList.add('show')));
+  peekTimer=setTimeout(()=>p.classList.remove('show'),4200)}
+
+// ===== 目安 =====
+// 記録（同じプログラム・温度・開き具合）があればその平均、なければプログラムの設定から計算
+function estimate(temp,door,pid){
+  const same=S.firings.filter(f=>f.closed&&f.door===door&&f.temp===temp&&(!pid||f.prog===pid)).map(f=>(f.closed-f.start)/6e4);
+  if(same.length)return {min:same.reduce((a,b)=>a+b)/same.length,n:same.length,exact:true};
+  const r=pid?progReach(pid,temp):null;
+  return r===null?null:{min:r,n:0,fromProg:true};
+}
+
+// ===== 部品 =====
+function steps(el,n,i){el.innerHTML=Array.from({length:n},(_,k)=>`<i class="${k===i?'on':''}"></i>`).join('')}
+function opts(list,{selected=[],single=true,cls='',fmt=v=>v,sub=()=>''}={}){
+  return `<div class="opts ${cls}">${list.map(v=>`<button type="button" class="opt" data-v="${esc(v)}" aria-pressed="${selected.includes(v)}">${esc(fmt(v))}${sub(v)?`<small>${esc(sub(v))}</small>`:''}</button>`).join('')}</div>`;
+}
+function bindOpts(root,{single=true,onChange}={}){
+  root.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{const on=b.getAttribute('aria-pressed')!=='true';
+    if(single)root.querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed',String(single?true:on));onChange&&onChange()});
+}
+const pickedIn=root=>[...root.querySelectorAll('.opt[aria-pressed="true"]')].map(b=>b.dataset.v);
+
+// ===== 焼く：ウィザード =====
+let F={step:0};
+function newDraft(){F={step:0,temp:S.last.temp,door:S.last.door,who:S.last.who.filter(w=>S.people.includes(w)),prog:S.last.prog}}
+newDraft();
+function renderWizard(){
+  const b=$('fBody');steps($('fSteps'),5,F.step);
+  const nav=(label,ok=true,tone=false)=>`<div class="actions"><button class="btn ${tone?'tone':''}" id="fNext" ${ok?'':'disabled'}>${label}</button>${F.step?'<button class="btn quiet" id="fBack">ひとつ戻る</button>':''}<div class="msg" id="fMsg" role="status"></div></div>`;
+  if(F.step===0){
+    const mine=PROGS.filter(p=>p.mine).map(p=>p.id),base=PROGS.filter(p=>!p.mine);
+    b.innerHTML=`<h2>どの<wbr>プログラムで<br>焼きますか？</h2>${opts(mine,{selected:[F.prog],fmt:id=>prog(id).name,sub:id=>id})}
+      <label class="other" style="justify-content:space-between">基本プログラム<select id="fBase" style="width:auto"><option value="">使わない</option>${base.map(p=>`<option value="${p.id}" ${p.id===F.prog?'selected':''}>${p.id} ${esc(p.name)}</option>`).join('')}</select></label>
+      <div class="hint" id="fPI"></div>${nav('つぎへ')}`;
+    const upd=()=>{const i=progInfo(F.prog);$('fPI').innerHTML=!F.prog?'プログラムを選んでください。':i?`${esc(pname(F.prog))}<br>最高 <b>${i.max}℃</b> ・ 全体 <b>${dur(i.total)}</b><small>全体＝最高温度のねらしが終わるまで。そのあと冷めるのを待ちます。</small>`:`${esc(pname(F.prog))}<small>このプログラムの設定はまだ入っていません。</small>`};
+    bindOpts(b,{onChange:()=>{F.prog=pickedIn(b)[0];$('fBase').value='';upd()}});
+    $('fBase').onchange=e=>{if(!e.target.value)return;F.prog=e.target.value;b.querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed','false'));upd()};upd();
+  }else if(F.step===1){
+    b.innerHTML=`<h2>何度で扉を<br>閉めますか？</h2>${opts(OPT.temps,{selected:[F.temp],fmt:v=>v+'℃'})}
+      <label class="other">ほかの温度<input type="number" id="fTemp" inputmode="numeric" min="100" max="900" step="10" value="${OPT.temps.includes(F.temp)?'':F.temp}">℃</label>${nav('つぎへ')}`;
+    bindOpts(b,{onChange:()=>{F.temp=+pickedIn(b)[0];$('fTemp').value=''}});
+    $('fTemp').oninput=e=>{const v=parseInt(e.target.value,10);if(!isNaN(v)){F.temp=v;b.querySelectorAll('.opt').forEach(x=>x.setAttribute('aria-pressed','false'))}};
+  }else if(F.step===2){
+    b.innerHTML=`<h2>扉の<wbr>開き具合は？</h2>${opts(OPT.door,{selected:[F.door]})}
+      <div class="hint" id="fEst"></div>${nav('つぎへ')}`;
+    const upd=()=>{const e=F.door?estimate(F.temp,F.door,F.prog):null,i=progInfo(F.prog);
+      $('fEst').innerHTML=(e?`${F.temp}℃・${esc(F.door)}なら、閉めるまで<br><b>約 ${dur(e.min)}</b><small>${e.exact?`これまで ${e.n} 回の平均`:`${esc(F.prog)} の設定から計算。扉を開けていると、少しおくれることがあります。`}</small>`:`閉めるまでの目安は、まだ出せません。<small>今回の結果が、次からの目安になります。</small>`)
+        +(i?`<small style="margin-top:6px">全体（焼き上がり）まで 約 ${dur(i.total)}</small>`:'')};
+    bindOpts(b,{onChange:()=>{F.door=pickedIn(b)[0];upd()}});upd();
+  }else if(F.step===3){
+    b.innerHTML=`<h2>だれに<br>お知らせ<wbr>しますか？</h2><p class="lead">いくつでも選べます。</p>${opts(S.people,{selected:F.who,cls:'',sub:v=>v==='自分'?'あなた':'共同作業者'})}${nav('つぎへ')}`;
+    bindOpts(b,{single:false,onChange:()=>{F.who=pickedIn(b)}});
+  }else{
+    b.innerHTML=`<h2>窯のブザーを<br>${F.temp}℃に<br>しましたか？</h2>
+      <p class="lead">ブザーの音が、見張りの合図になります。</p>
+      <div class="summary">
+        <div><span>扉を閉める</span>${F.temp}℃</div>
+        <div><span>開き具合</span>${esc(F.door)}</div>
+        <div><span>お知らせ</span>${F.who.map(esc).join('・')}</div>
+        <div><span>プログラム</span>${esc(pname(F.prog))}</div>
+      </div>
+      <label class="check"><input type="checkbox" id="fBuzz"><span>はい、窯のブザーを ${F.temp}℃ にしました</span></label>${nav('焼き始める',false,true)}`;
+    $('fBuzz').onchange=e=>{$('fNext').disabled=!e.target.checked;if(e.target.checked)peek('準備ばっちり！','var(--coral)','happy')};
+  }
+  $('fNext').onclick=()=>{
+    const m=$('fMsg'),pi=progInfo(F.prog);
+    if(F.step===0&&!prog(F.prog)){m.textContent='プログラムを選んでください。';return}
+    if(F.step===1&&!(F.temp>=100&&F.temp<=900)){m.textContent='100〜900℃で選んでください。';return}
+    if(F.step===1&&pi&&F.temp>=pi.max){m.textContent=`このプログラムは最高 ${pi.max}℃ です。それより低くしてください。`;return}
+    if(F.step===2&&!F.door){m.textContent='開き具合を選んでください。';return}
+    if(F.step===3&&!F.who.length){m.textContent='1人以上選んでください。';return}
+    if(F.step<4){F.step++;renderWizard();window.scrollTo(0,0);return}
+    const f={id:Date.now(),prog:F.prog,temp:F.temp,door:F.door,start:Date.now(),closed:null,closer:null,who:F.who,rec:null};
+    S.firings.unshift(f);S.active=f.id;S.last={prog:F.prog,temp:F.temp,door:F.door,who:F.who};save();sync({a:'saveFiring',firing:f});renderFire();
+    peek(`${F.temp}℃になったら呼ぶね`,'var(--coral)','happy');
+  };
+  const back=$('fBack');if(back)back.onclick=()=>{F.step--;renderWizard()};
+}
+const act=()=>S.firings.find(f=>f.id===S.active);
+let closer='自分';
+function renderFire(){
+  const f=act();$('wizard').hidden=!!f;$('running').hidden=!f;decoState();
+  if(!f){newDraft();renderWizard();return}
+  const e=estimate(f.temp,f.door,f.prog),st=$('stage'),pi=progInfo(f.prog);
+  const endAt=pi?`焼き上がり ${hm(f.start+pi.total*6e4)}ごろ`:'';
+  if(f.closed){
+    st.innerHTML=`${chara('var(--lav)','happy','hero-chara')}
+      <div class="state">扉を閉めました</div>
+      <div class="big">${hm(f.closed)}</div>
+      <div class="meta">${f.closer==='自分'?'あなた':esc(f.closer)}が閉めました ・ 焼き始めから ${dur((f.closed-f.start)/6e4)}${f.ended?`<br>焼き上がり ${hm(f.ended)}（焼き始めから ${dur((f.ended-f.start)/6e4)}）`:endAt?`<br>${endAt}（そのあと冷めるのを待つ）`:''}</div>
+      ${f.ended?'':'<button type="button" class="pill" id="rEnded" style="margin-top:10px">プログラムが終わった（いま）</button>'}
+      <div class="actions" style="width:100%;margin-top:14px"><button class="btn" id="rFinish">窯出しの記録へ</button><span class="note">冷めて「End」が出てから ・ 時刻はあとから「直す」でも入れられます</span></div>`;
+    if($('rEnded'))$('rEnded').onclick=()=>{f.ended=Date.now();save();sync({a:'saveFiring',firing:f});renderFire();renderGuide();peek('焼き上がり、おぼえたよ','var(--lav)','happy')};
+    $('rFinish').onclick=()=>{S.active=null;save();L={step:0,id:f.id};renderFire();renderLog();show('log')};
+  }else{
+    const alert=!!f.buzz;
+    st.innerHTML=`${chara(alert?'var(--coral)':'var(--lemon)',alert?'alert':'wait','hero-chara'+(alert?' shake':' bob'))}
+      <div class="state">${alert?`<span class="live" style="background:var(--coral)"></span>${f.temp}℃になりました`:`<span class="live"></span>扉は半開き・ブザー待ち`}</div>
+      <div class="big${alert?' jp':''}">${alert?'扉を閉めて':(e?`${hm(f.start+e.min*6e4)}<small>ごろ</small>`:'--:--')}</div>
+      <div class="meta">${alert?'閉めたら下のボタンを押してください':`${f.temp}℃で閉める ・ 焼き始め ${hm(f.start)}${endAt?`<br>${endAt}`:''}`}</div>
+      <div class="closer" style="margin-top:16px" id="rCloser">${S.people.map(p=>`<button type="button" class="pill" data-v="${esc(p)}" aria-pressed="${p===closer}">${p==='自分'?'わたし':esc(p)}</button>`).join('')}</div>
+      <div class="actions" style="width:100%"><button class="btn tone" id="rClose">扉を閉めました</button></div>`;
+    st.querySelectorAll('.pill').forEach(b=>b.onclick=()=>{closer=b.dataset.v;st.querySelectorAll('.pill').forEach(x=>x.setAttribute('aria-pressed',String(x===b)))});
+    $('rClose').onclick=()=>{f.closed=Date.now();f.closer=closer;save();sync({a:'saveFiring',firing:f});renderFire();renderGuide();peek('おつかれさま！','var(--lav)','happy')};
+  }
+  $('rInfo').textContent=`プログラム ${pname(f.prog)} ・${f.door} ・ お知らせ：${f.who.join('・')}`;
+  renderLine(f);
+}
+function renderLine(f){
+  const box=$('lineDemo'),add=(t,btn,time)=>box.insertAdjacentHTML('beforeend',`<div class="bubble">${t}${btn?`<span class="lb">${btn}</span>`:''}<small>${time}</small></div>`);
+  box.innerHTML='';
+  add(`焼成を始めました（${esc(pname(f.prog))}）<br>${f.temp}℃で扉を閉めます。`,null,hm(f.start));
+  if(f.buzz||f.closed){const bt=f.buzzAt||f.closed;
+    add(`${f.temp}℃になりました。<br>扉を閉めてください。`,'閉めました',hm(bt));
+    if(!f.closed)add('5分たっても「閉めました」が押されていません。扉を確認してください。',null,'5分後（押されなければ）');}
+  if(f.closed)add(`${f.closer==='自分'?'本人':esc(f.closer)}が扉を閉めました。`,null,hm(f.closed));
+  $('simBuzz').hidden=!!(f.buzz||f.closed);
+}
+$('simBuzz').onclick=()=>{const f=act();f.buzz=true;f.buzzAt=Date.now();save();sync({a:'saveFiring',firing:f});renderFire();$('rDetails').open=false;window.scrollTo(0,0);peek('ピーッ！いまだよ','var(--coral)','alert')};
+$('rCancel').onclick=()=>{const id=S.active;S.firings=S.firings.filter(f=>f.id!==id);S.active=null;save();sync({a:'deleteFiring',id});renderFire()};
+
+// ===== 記録：ウィザード =====
+let L={step:0};
+function pending(){return S.firings.filter(f=>!f.rec&&f.id!==S.active)}
+function renderLog(){
+  const b=$('lBody');steps($('lSteps'),4,L.step);
+  if(L.id===undefined){const p=pending()[0];L.id=p?p.id:'none'}
+  const f=S.firings.find(x=>x.id===L.id);
+  const nav=(label,tone=false)=>`<div class="actions"><button class="btn ${tone?'tone':''}" id="lNext">${label}</button>${L.step?'<button class="btn quiet" id="lBack">ひとつ戻る</button>':''}<div class="msg" id="lMsg" role="status"></div></div>`;
+  if(L.step===0){
+    const pend=pending();
+    b.innerHTML=`<div class="tag">${f?`${md(f.start)} の焼成 ・ ${f.temp}℃・${esc(f.door)}${f.sample?'（見本）':''}`:'焼成の記録なし'}</div>
+      <h2>出来は<br>どうでしたか？</h2>${opts(['◎','○','△','×'],{selected:[L.grade],cls:'four'})}
+      <p class="note" style="margin:-8px 0 0;text-align:center">とても良い ・ 良い ・ いまいち ・ 失敗</p>
+      ${pend.length>1?`<label class="other" style="justify-content:space-between">ほかの焼成<select id="lWhich" style="width:auto">${pend.map(x=>`<option value="${x.id}" ${x.id===L.id?'selected':''}>${md(x.start)} ${x.temp}℃</option>`).join('')}<option value="none">記録なし</option></select></label>`:''}
+      ${nav('つぎへ')}`;
+    bindOpts(b,{onChange:()=>{L.grade=pickedIn(b)[0];if(L.grade==='◎')peek('やったね！','var(--lav)','happy')}});
+    const w=$('lWhich');if(w)w.onchange=e=>{L.id=e.target.value==='none'?'none':+e.target.value;renderLog()};
+  }else if(L.step===1){
+    b.innerHTML=`<h2>気になった<wbr>ところは？</h2><p class="lead">なければ「問題なし」。</p>${opts(OPT.issue,{selected:L.issue||[]})}${nav('つぎへ')}`;
+    bindOpts(b,{single:false,onChange:()=>{L.issue=pickedIn(b)}});
+  }else if(L.step===2){
+    const prev=S.firings.find(x=>x.rec&&x.id!==L.id);
+    if(!L.clay&&prev){L.clay=prev.rec.clay;L.glaze=prev.rec.glaze}
+    b.innerHTML=`<h2>土と釉薬</h2><p class="lead">前回と同じものを選んであります。</p>
+      <div class="tag">土</div><div id="lc">${opts(OPT.clay,{selected:L.clay||[],cls:''})}</div>
+      <div class="tag">釉薬・絵の具（いくつでも）</div><div id="lg">${opts(OPT.glaze,{selected:L.glaze||[],cls:''})}</div>${nav('つぎへ')}`;
+    bindOpts($('lc'),{onChange:()=>{L.clay=pickedIn($('lc'))}});bindOpts($('lg'),{single:false,onChange:()=>{L.glaze=pickedIn($('lg'))}});
+  }else{
+    b.innerHTML=`<h2>写真とメモ</h2><p class="lead">どちらも、なくても大丈夫です。</p>
+      <div class="photo"><label>＋ 写真（保存は準備中）<input type="file" id="lPh" accept="image/*" multiple></label><span id="lThumbs" class="photo"></span></div>
+      <textarea id="lMemo" placeholder="例：金がよく光った。マルシェで先に売れたのはこっち。" aria-label="ひとことメモ">${esc(L.memo||'')}</textarea>${nav('記録する',true)}`;
+    $('lPh').onchange=e=>{const t=$('lThumbs');t.innerHTML='';[...e.target.files].slice(0,6).forEach(x=>{const i=document.createElement('img');i.className='thumb';i.alt='追加した写真';i.src=URL.createObjectURL(x);t.appendChild(i)})};
+    $('lMemo').oninput=e=>L.memo=e.target.value;
+  }
+  $('lNext').onclick=()=>{
+    const m=$('lMsg');
+    if(L.step===0&&!L.grade){m.textContent='どれか1つ選んでください。';return}
+    if(L.step<3){L.step++;renderLog();window.scrollTo(0,0);return}
+    const rec={clay:L.clay||[],glaze:L.glaze||[],grade:L.grade,issue:L.issue||[],memo:(L.memo||'').trim()};
+    let tf;if(L.id==='none'){tf={id:Date.now(),prog:'',temp:null,door:null,start:Date.now(),closed:null,who:[],rec};S.firings.push(tf)}
+    else{tf=S.firings.find(x=>x.id===L.id);tf.rec=rec}
+    save();sync({a:'saveFiring',firing:tf});L={step:0};renderLog();$('lPast').open=true;peek('記録したよ。次はもっと良くなる！','var(--lav)','happy');
+  };
+  const back=$('lBack');if(back)back.onclick=()=>{L.step--;renderLog()};
+  // 過去の記録
+  const done=S.firings.filter(x=>x.id!==S.active);$('lPastSum').textContent=`これまでの記録（${done.length}）`;
+  $('lList').innerHTML=done.map(x=>`<div class="row"><div class="g">${x.rec?x.rec.grade:'<span class="note">まだ</span>'}</div><div>
+    <div class="m">${md(x.start)}${x.prog?` ・ ${esc(x.prog)}`:''}${x.temp?` ・ ${x.temp}℃`:''}${x.door?`・${esc(x.door)}`:''}${x.sample?' ・ 見本':''}</div>
+    ${x.closed||x.ended?`<div class="m">${x.closed?`閉めるまで ${dur((x.closed-x.start)/6e4)}`:''}${x.closed&&x.ended?' ・ ':''}${x.ended?`焼き上がりまで ${dur((x.ended-x.start)/6e4)}`:''}${x.approx?'':` （${hm(x.start)}〜）`}</div>`:''}
+    ${x.rec?`<div class="t">${[x.rec.clay.join('・'),x.rec.glaze.join('・'),x.rec.issue.join('・')].filter(Boolean).map(esc).join(' ／ ')}</div>
+    ${x.rec.memo?`<div class="t">${esc(x.rec.memo)}</div>`:''}`:''}</div><button type="button" data-id="${x.id}">直す</button></div>`).join('');
+  $('lList').querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>openRec(+b.dataset.id));
+}
+
+// ===== 記録の追加・直し（前に焼いた分・時間の直し） =====
+let RE=null; // 編集中 {id, del, mode, grade, issue, clay, glaze}
+const pad2=n=>String(n).padStart(2,'0');
+const dstr=t=>{const d=new Date(t);return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`};
+const tstr=t=>{const d=new Date(t);return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`};
+function openRec(id){
+  const f=id?S.firings.find(x=>x.id===id):null,r=(f&&f.rec)||{};
+  RE={id:f?f.id:null,del:false,mode:f&&f.approx?'dur':'time',grade:r.grade||null,issue:r.issue||[],clay:r.clay||[],glaze:r.glaze||[]};
+  const since=t=>f&&t?Math.round((t-f.start)/6e4):null;
+  const hmIn=(k,m)=>`<span class="hm"><input type="number" inputmode="numeric" min="0" max="99" id="${k}H" value="${m==null?'':Math.floor(m/60)}" aria-label="時間">時間<input type="number" inputmode="numeric" min="0" max="59" id="${k}M" value="${m==null?'':m%60}" aria-label="分">分</span>`;
+  const allP=PROGS.map(p=>`<option value="${p.id}" ${f&&f.prog===p.id?'selected':''}>${p.id} ${esc(p.name)}</option>`).join('');
+  $('lEdit').innerHTML=`<div class="pform">
+    <div class="tag">${f?'記録を直す':'前に焼いた記録'}</div>
+    <div class="fgrid"><span>焼いた日</span><input type="date" id="reDate" value="${dstr(f?f.start:Date.now())}"></div>
+    <div class="closer" id="reMode"><button type="button" class="pill" data-v="time">時刻で入れる</button><button type="button" class="pill" data-v="dur">かかった時間で入れる</button></div>
+    <div class="fgrid" id="reTime">
+      <span>焼き始め</span><input type="time" id="reStart" value="${f&&!f.approx?tstr(f.start):''}">
+      <span>扉を閉めた</span><input type="time" id="reClosed" value="${f&&!f.approx&&f.closed?tstr(f.closed):''}">
+      <span>焼き上がり</span><input type="time" id="reEnd" value="${f&&!f.approx&&f.ended?tstr(f.ended):''}">
+    </div>
+    <div class="fgrid" id="reDur">
+      <span>閉めるまで</span>${hmIn('reC',since(f&&f.closed))}
+      <span>焼き上がりまで</span>${hmIn('reE',since(f&&f.ended))}
+    </div>
+    <p class="note" style="margin:-4px 0 0">焼き上がり＝窯のプログラムが終わったとき。わからない欄は空のままで大丈夫です。</p>
+    <div class="fgrid">
+      <span>プログラム</span><select id="reProg"><option value="">わからない</option>${allP}</select>
+      <span>閉めた温度</span><span class="hm"><input type="number" inputmode="numeric" min="100" max="900" step="10" id="reTemp" value="${f&&f.temp?f.temp:''}" style="width:6em">℃</span>
+      <span>開き具合</span><select id="reDoor"><option value="">わからない</option>${OPT.door.map(d=>`<option ${f&&f.door===d?'selected':''}>${d}</option>`).join('')}</select>
+      <span>閉めた人</span><select id="reWho"><option value="">—</option>${[...new Set([...S.people,...(f&&f.closer?[f.closer]:[])])].map(p=>`<option value="${esc(p)}" ${f&&f.closer===p?'selected':''}>${p==='自分'?'わたし':esc(p)}</option>`).join('')}</select>
+    </div>
+    <div class="hint" id="rePrev"></div>
+    <hr class="dots">
+    <div class="tag">出来</div><div id="reG">${opts(['◎','○','△','×'],{selected:[RE.grade],cls:'four'})}</div>
+    <p class="note" style="margin:-8px 0 0;text-align:center">出来を選ぶと、下の項目も記録されます</p>
+    <div id="reMore">
+      <div class="tag">気になったところ</div><div id="reI" style="margin:10px 0 16px">${opts(OPT.issue,{selected:RE.issue})}</div>
+      <div class="tag">土</div><div id="reC2" style="margin:10px 0 16px">${opts([...new Set([...OPT.clay,...RE.clay])],{selected:RE.clay})}</div>
+      <div class="tag">釉薬・絵の具</div><div id="reGl" style="margin:10px 0 16px">${opts([...new Set([...OPT.glaze,...RE.glaze])],{selected:RE.glaze})}</div>
+      <textarea id="reMemo" placeholder="メモ" aria-label="メモ">${esc(r.memo||'')}</textarea>
+    </div>
+    <div class="actions"><button class="btn tone" type="button" id="reSave">保存する</button>
+      ${f?'<button class="btn quiet" type="button" id="reDel">この記録を消す</button>':''}
+      <button class="btn quiet" type="button" id="reCancel">やめる</button><div class="msg" id="reMsg" role="status"></div></div></div>`;
+  const setMode=m=>{RE.mode=m;$('reTime').hidden=m!=='time';$('reDur').hidden=m!=='dur';
+    $('reMode').querySelectorAll('.pill').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===m)));prev()};
+  $('reMode').querySelectorAll('.pill').forEach(b=>b.onclick=()=>setMode(b.dataset.v));
+  bindOpts($('reG'),{onChange:()=>{RE.grade=pickedIn($('reG'))[0]||null}});
+  bindOpts($('reI'),{single:false,onChange:()=>{RE.issue=pickedIn($('reI'))}});
+  bindOpts($('reC2'),{single:false,onChange:()=>{RE.clay=pickedIn($('reC2'))}});
+  bindOpts($('reGl'),{single:false,onChange:()=>{RE.glaze=pickedIn($('reGl'))}});
+  const prev=()=>{const t=readTimes();if(t.err){$('rePrev').innerHTML=esc(t.err);return}
+    const p=$('reProg').value,i=p?progInfo(p):null;
+    $('rePrev').innerHTML=(t.closed?`閉めるまで <b>${dur((t.closed-t.start)/6e4)}</b><br>`:'')+(t.ended?`焼き上がりまで <b>${dur((t.ended-t.start)/6e4)}</b>`:'')
+      +(t.ended&&i?`<small>${esc(p)} の予定は ${dur(i.total)} → ${(()=>{const d=Math.round((t.ended-t.start)/6e4-i.total);return d===0?'予定どおり':d>0?`${d}分おそい`:`${-d}分はやい`})()}</small>`:'')
+      +(!t.closed&&!t.ended?'時間を入れると、ここに出ます。':'')};
+  $('lEdit').querySelectorAll('input,select').forEach(x=>{x.oninput=prev;x.onchange=prev});
+  setMode(RE.mode);
+  $('reCancel').onclick=closeRec;
+  if(f)$('reDel').onclick=e=>{if(!RE.del){RE.del=true;e.target.textContent='本当に消す';return}
+    S.firings=S.firings.filter(x=>x.id!==f.id);save();sync({a:'deleteFiring',id:f.id});closeRec();renderLog();renderGuide();peek('消したよ','var(--lemon)','wait')};
+  $('reSave').onclick=()=>{const m=$('reMsg'),t=readTimes();
+    if(t.err){m.textContent=t.err;return}
+    const temp=parseInt($('reTemp').value,10);
+    if($('reTemp').value&&!(temp>=100&&temp<=900)){m.textContent='閉めた温度は100〜900℃で入れてください。';return}
+    // 1分ごとの読み直しで S.firings が入れかわっていても、いまの行を直す
+    const cur=f&&S.firings.find(x=>x.id===f.id),g=cur||{id:f?f.id:Date.now(),who:f?f.who:[]};
+    Object.assign(g,{start:t.start,closed:t.closed,ended:t.ended,approx:RE.mode==='dur',prog:$('reProg').value,temp:isNaN(temp)?null:temp,door:$('reDoor').value||null,closer:$('reWho').value||null});
+    g.rec=RE.grade?{grade:RE.grade,issue:RE.issue,clay:RE.clay,glaze:RE.glaze,memo:$('reMemo').value.trim()}:null;
+    if(!cur)S.firings.push(g);S.firings.sort((a,b)=>(b.start||0)-(a.start||0));
+    save();sync({a:'saveFiring',firing:g});closeRec();renderLog();renderGuide();$('lPast').open=true;peek(f?'直したよ！':'入れたよ。目安が育つね','var(--lav)','happy')};
+  $('lEdit').scrollIntoView({behavior:'smooth',block:'start'});
+}
+// 日付＋時刻（または かかった時間）から ミリ秒を作る。日をまたいだら次の日にする
+function readTimes(){
+  const dv=$('reDate').value;if(!dv)return {err:'焼いた日を入れてください。'};
+  const [y,mo,d]=dv.split('-').map(Number);
+  if(RE.mode==='dur'){
+    const mins=k=>{const h=$(k+'H').value,mm=$(k+'M').value;if(h===''&&mm==='')return null;return (+h||0)*60+(+mm||0)};
+    const start=new Date(y,mo-1,d,9,0).getTime(),c=mins('reC'),e=mins('reE');
+    if(c!=null&&e!=null&&e<c)return {err:'焼き上がりは、閉めたあとの時間にしてください。'};
+    return {start,closed:c?start+c*6e4:null,ended:e?start+e*6e4:null};
+  }
+  const at=(v,after)=>{if(!v)return null;const [h,mm]=v.split(':').map(Number);let t=new Date(y,mo-1,d,h,mm).getTime();while(after!=null&&t<=after)t+=864e5;return t};
+  const sv=$('reStart').value;if(!sv)return ($('reClosed').value||$('reEnd').value)?{err:'焼き始めの時刻を入れてください。'}:{start:new Date(y,mo-1,d,9,0).getTime(),closed:null,ended:null};
+  const start=at(sv),closed=at($('reClosed').value,start),ended=at($('reEnd').value,closed||start);
+  return {start,closed,ended};
+}
+function closeRec(){RE=null;$('lEdit').innerHTML=''}
+$('lAdd').onclick=()=>openRec(null);
+
+// ===== 目安 =====
+function renderGuide(){
+  const g={};S.firings.filter(f=>f.closed).forEach(f=>{const k=f.temp+'|'+f.door;(g[k]=g[k]||[]).push((f.closed-f.start)/6e4)});
+  const rows=Object.entries(g).map(([k,v])=>{const[t,d]=k.split('|');return {t:+t,d,avg:v.reduce((a,b)=>a+b)/v.length,n:v.length}})
+    .sort((a,b)=>b.t-a.t||OPT.door.indexOf(a.d)-OPT.door.indexOf(b.d));
+  const max=Math.max(...rows.map(r=>r.avg),1);
+  $('gList').innerHTML=rows.length?rows.map(r=>`<div class="gcard"><div class="k">${r.t}℃ ・ ${esc(r.d)}<small>${r.n}回の平均</small></div><div class="v">${dur(r.avg).replace('時間','<small style="font-size:.8rem">時間</small>').replace('分','<small style="font-size:.8rem">分</small>')}</div><div class="bar"><i style="width:${(r.avg/max*100).toFixed(0)}%"></i></div></div>`).join('')
+    :`<div class="hint">まだ記録がありません。<small>扉を閉めたときに「扉を閉めました」を押すと、ここにたまります。</small></div>`;
+  const mine=PROGS.filter(p=>p.mine),pmax=Math.max(...mine.map(p=>progInfo(p.id)?.total||0),1);
+  const hd=m=>dur(m).replace('時間','<small style="font-size:.8rem">時間</small>').replace('分','<small style="font-size:.8rem">分</small>');
+  const real=id=>{const v=S.firings.filter(f=>f.prog===id&&f.ended&&f.start).map(f=>(f.ended-f.start)/6e4);return v.length?{avg:v.reduce((a,b)=>a+b)/v.length,n:v.length}:null};
+  $('gProg').innerHTML=mine.map(p=>{const i=progInfo(p.id),r=real(p.id);return `<div class="gcard"><div class="k">${esc(p.name)}<small>${p.id}${i?` ・ 最高 ${i.max}℃`:' ・ 設定はまだ'}</small>${r?`<small>実際は 平均 ${dur(r.avg)}（${r.n}回）</small>`:''}</div><div class="v">${i?hd(i.total):'—'}</div>${i?`<div class="bar"><i style="width:${(i.total/pmax*100).toFixed(0)}%"></i></div>`:''}</div>`}).join('');
+}
+
+// ===== 設定 =====
+function renderPeople(){
+  $('pList').innerHTML=S.people.map(p=>`<div class="person"><span>${p==='自分'?'自分（あなた）':esc(p)}</span>${p==='自分'?'':`<button type="button" data-p="${esc(p)}">外す</button>`}</div>`).join('');
+  $('pList').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.people=S.people.filter(x=>x!==b.dataset.p);save();sync({a:'savePeople',people:S.people});renderPeople();renderFire()});
+}
+$('pAdd').onclick=()=>{const v=$('pName').value.trim();if(!v||S.people.includes(v))return;S.people.push(v);$('pName').value='';save();sync({a:'savePeople',people:S.people});renderPeople();renderFire();peek(`${v}さん、よろしくね`,'var(--aqua)','happy')};
+// ===== 自作プログラムの登録・修正 =====
+const ROWS=[['時間1','t1','温度1','c1'],['時間2','t2','温度2','c2'],['ねらし1','n1',null,null],['時間3','t3','温度3','c3'],['ねらし2','n2',null,null]];
+let PE=null; // 編集中 {orig, del}
+function renderPrograms(){
+  $('prList').innerHTML=S.progs.map(p=>{const i=progInfo(p.id);return `<div class="person"><span>${esc(p.id)} ${esc(p.name)}<small class="note" style="display:block">${i?`最高 ${i.max}℃ ・ 全体 ${dur(i.total)}`:'設定はまだ'}</small></span><button type="button" data-id="${esc(p.id)}">直す</button></div>`}).join('');
+  $('prList').querySelectorAll('button').forEach(b=>b.onclick=()=>openProg(b.dataset.id));
+}
+function openProg(id){
+  const p=S.progs.find(x=>x.id===id),used=S.progs.map(x=>x.id).filter(x=>x!==id);
+  const free=Array.from({length:20},(_,i)=>'B-'+(i+1)).filter(x=>!used.includes(x));
+  if(!free.length){$('setMsg').textContent='B-1〜B-20 がすべて使われています。';return}
+  PE={orig:id||null,del:false};const v=(p&&p.v)||{};
+  const num=(k,ph)=>`<input type="number" inputmode="numeric" min="0" step="1" data-k="${k}" value="${v[k]||''}" placeholder="${ph}" aria-label="${ph}">`;
+  $('prEdit').innerHTML=`<div class="pform">
+    <div class="tag">${p?'プログラムを直す':'プログラムを追加'}</div>
+    <div class="addrow"><select id="peId" aria-label="番号" style="width:auto">${free.map(x=>`<option ${x===(id||free[0])?'selected':''}>${x}</option>`).join('')}</select>
+      <input type="text" id="peName" value="${esc(p?p.name:'')}" placeholder="名前（例：金）" aria-label="名前"></div>
+    <p class="note" style="margin:0">窯に入れた数字を、そのまま。使わない欄は空のままで。</p>
+    <div class="pgrid">${ROWS.map(([a,ka,b,kb])=>`<span>${a}</span>${num(ka,'分')}${kb?`<span>${b}</span>${num(kb,'℃')}`:'<span></span><span class="note">そのまま保つ</span>'}`).join('')}</div>
+    <div class="hint" id="pePrev"></div>
+    <div class="actions"><button class="btn tone" type="button" id="peSave">保存する</button>
+      ${p?'<button class="btn quiet" type="button" id="peDel">このプログラムを消す</button>':''}
+      <button class="btn quiet" type="button" id="peCancel">やめる</button><div class="msg" id="peMsg" role="status"></div></div></div>`;
+  const read=()=>{const o={};$('prEdit').querySelectorAll('input[data-k]').forEach(x=>{const n=parseInt(x.value,10);if(n>0)o[x.dataset.k]=n});return o};
+  const prev=()=>{const s=toSteps(read());let t=0,max=ROOM;(s||[]).forEach(x=>{t+=x[0];if(x.length>1)max=Math.max(max,x[1])});
+    $('pePrev').innerHTML=s?`最高 <b>${max}℃</b> ・ 全体 <b>${dur(t)}</b>`:'数字を入れると、全体の時間が出ます。'};
+  $('prEdit').querySelectorAll('input[data-k]').forEach(x=>x.oninput=prev);prev();
+  $('peCancel').onclick=closeProg;
+  if(p)$('peDel').onclick=e=>{if(!PE.del){PE.del=true;e.target.textContent='本当に消す';return}
+    S.progs=S.progs.filter(x=>x.id!==id);sync({a:'deleteProg',id});afterProg('消しました。')};
+  $('peSave').onclick=()=>{const m=$('peMsg'),name=$('peName').value.trim(),o=read();
+    if(!name){m.textContent='名前を入れてください。';return}
+    if(Object.entries(o).some(([k,n])=>k[0]==='c'?n>1300:n>5999)){m.textContent='温度は1300℃まで、時間は5999分までです。';return}
+    if(!(o.t1&&o.c1)){m.textContent='少なくとも「時間1」と「温度1」を入れてください。';return}
+    const nid=$('peId').value;S.progs=S.progs.filter(x=>x.id!==id);S.progs.push({id:nid,name,v:o});sync({a:'saveProg',prog:{id:nid,name,v:o},origId:id||undefined});
+    if(S.last.prog===id)S.last.prog=nid;afterProg(`${nid} ${name} を保存しました。`);peek('おぼえたよ！','var(--lav)','happy')};
+  $('prEdit').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function closeProg(){PE=null;$('prEdit').innerHTML=''}
+function afterProg(msg){save();refreshProgs();closeProg();renderPrograms();renderGuide();renderFire();$('setMsg').textContent=msg}
+$('prNew').onclick=()=>openProg(null);
+
+
+// ===== 修正依頼ポスト =====
+// 送った依頼はスプレッドシートの「修正依頼」へ。先生の PC が5分おきに読んで、状態と返事を書きもどす。
+const RQ_STATE={'受付待ち':'送りました','受付':'受け付けました','対応中':'直し方を考えています','できました':'できました','見送り':'今回は見送り'};
+function renderRequests(){
+  const list=S.requests||[];
+  $('rqList').innerHTML=list.map(q=>{const late=q.state==='受付待ち'&&q.at&&Date.now()-q.at>24*3600e3;
+    return `<div class="row" style="grid-template-columns:1fr auto"><div>
+      <div class="m">${md(q.at)} ・ ${esc(q.screen||'')}</div><div class="t">${esc(q.text)}</div>
+      ${q.reply?`<div class="t" style="margin-top:4px">↳ ${esc(q.reply)}</div>`:''}
+      ${late?'<div class="note" style="color:#c4482c">まだ受け付けられていません。先生のパソコンが止まっているかもしれません。</div>':''}</div>
+      <span class="tag" style="align-self:start">${esc(RQ_STATE[q.state]||q.state)}</span></div>`}).join('');
+}
+$('rqSend').onclick=()=>{const t=$('rqText').value.trim(),m=$('rqMsg');
+  if(!t){m.style.color='';m.textContent='直してほしいことを書いてください。';return}
+  const q={id:Date.now(),screen:$('rqScreen').value,text:t.slice(0,2000)};
+  S.requests=[{...q,at:q.id,state:'受付待ち',reply:''},...(S.requests||[])];save();sync({a:'saveRequest',request:q});
+  $('rqText').value='';m.style.color='#2f9a68';m.textContent='届きました。ありがとうございます！';renderRequests();peek('とどけたよ！','var(--lav)','happy')};
+// ===== ブザーの聞き取り =====
+// 窯のブザー＝約2275Hz（11/25 録音の分析）。その高さの音が、ほかの音より30dB以上強く、2秒続いたら「ブザー」。
+const BZ={lo:2150,hi:2400,db:30,hold:2,scale:70};
+$('earLine').style.left=(BZ.db/BZ.scale*100)+'%';
+function judge(spec,binHz){
+  let peak=-Infinity,pk=0;const ref=[];
+  const a=Math.floor(300/binHz),z=Math.min(spec.length-1,Math.ceil(7500/binHz));
+  for(let k=a;k<=z;k++){const v=spec[k];if(!isFinite(v))continue;ref.push(v);const hz=k*binHz;if(hz>=BZ.lo&&hz<=BZ.hi&&v>peak){peak=v;pk=hz}}
+  if(!ref.length||!isFinite(peak))return {strength:0,hz:0};
+  ref.sort((x,y)=>x-y);return {strength:peak-ref[ref.length>>1],hz:pk};
+}
+function earShow(main,sub,strength,hit){$('earSt').innerHTML=`${esc(main)}<small>${esc(sub)}</small>`;
+  const b=$('earBar');b.style.width=Math.max(0,Math.min(100,strength/BZ.scale*100))+'%';b.classList.toggle('hit',!!hit)}
+let ear=null;
+function earStop(){if(!ear)return;clearInterval(ear.timer);ear.stream.getTracks().forEach(t=>t.stop());ear.ctx.close().catch(()=>{});ear=null;$('earMic').textContent='マイクで聞く';$('earMic').setAttribute('aria-pressed','false')}
+$('earMic').onclick=async()=>{
+  if(ear){earStop();earShow('止めました','',0);return}
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}})}
+  catch(e){earShow('マイクが使えませんでした','この画面でマイクが許可されていないようです。「動画ファイルで試す」を使ってください',0);return}
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();await ctx.resume().catch(()=>{});
+  const an=ctx.createAnalyser();an.fftSize=4096;an.smoothingTimeConstant=0.2;ctx.createMediaStreamSource(stream).connect(an);
+  const buf=new Float32Array(an.frequencyBinCount),binHz=ctx.sampleRate/an.fftSize;
+  let run=0,miss=0,heard=false;
+  ear={stream,ctx,timer:setInterval(()=>{
+    an.getFloatFrequencyData(buf);const j=judge(buf,binHz),hit=j.strength>=BZ.db;
+    if(hit){run+=0.1;miss=0}else if(++miss>=3){run=0;if(heard&&miss>=30)heard=false}
+    if(run>=BZ.hold&&!heard){heard=true;peek('ピーッ！聞こえたよ','var(--coral)','alert')}
+    if(heard)earShow('聞こえた！',`${Math.round(j.hz)||2275}Hz のブザー ・ これを合図に撮影します`,j.strength,true);
+    else if(run>0)earShow(`ピー音 ${run.toFixed(1)}秒`,`${BZ.hold}秒続いたらブザーと判断します`,j.strength,true);
+    else earShow('聞いています…','ブザーの動画を流してください',j.strength,false);
+  },100)};
+  $('earMic').textContent='止める';$('earMic').setAttribute('aria-pressed','true');
+};
+function fft(re,im){const n=re.length;
+  for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]]}}
+  for(let len=2;len<=n;len<<=1){const ang=-2*Math.PI/len,wr=Math.cos(ang),wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<len/2;k++){const a=i+k,b=a+len/2,tr=re[b]*cr-im[b]*ci,ti=re[b]*ci+im[b]*cr;
+      re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t}}}}
+$('earFile').onchange=async e=>{
+  const file=e.target.files[0];e.target.value='';if(!file)return;earStop();earShow('調べています…',file.name,0);
+  let audio;
+  try{const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    audio=await new Promise((ok,ng)=>file.arrayBuffer().then(b=>ctx.decodeAudioData(b,ok,ng)).catch(ng));ctx.close().catch(()=>{})}
+  catch(err){earShow('読み込めませんでした','音の入った動画（MP4など）を選んでください',0);return}
+  const x=audio.getChannelData(0),sr=audio.sampleRate,n=4096,hop=Math.round(sr*0.1),binHz=sr/n;
+  const win=Float32Array.from({length:n},(_,i)=>0.5-0.5*Math.cos(2*Math.PI*i/(n-1)));
+  const re=new Float32Array(n),im=new Float32Array(n),spec=new Float32Array(n/2);
+  let run=0,miss=0,best=0,start=null,firstAt=null,hzSum=0,hits=0,top=0;
+  for(let i=0;i+n<=x.length;i+=hop){
+    for(let k=0;k<n;k++){re[k]=x[i+k]*win[k];im[k]=0}fft(re,im);
+    for(let k=0;k<n/2;k++)spec[k]=20*Math.log10(Math.hypot(re[k],im[k])+1e-12);
+    const j=judge(spec,binHz),t=i/sr;top=Math.max(top,j.strength);
+    if(j.strength>=BZ.db){if(!run)start=t;run+=0.1;miss=0;hzSum+=j.hz;hits++}else if(++miss>=3)run=0;
+    best=Math.max(best,run);if(run>=BZ.hold&&firstAt===null)firstAt=start;
+  }
+  if(firstAt!==null){earShow('聞こえた！',`${firstAt.toFixed(1)}秒目から ・ 約${Math.round(hzSum/hits)}Hz ・ ${best.toFixed(1)}秒続いた`,top,true);peek('ピーッ！聞こえたよ','var(--coral)','alert')}
+  else earShow('ブザーは見つかりませんでした',best?`ピー音は${best.toFixed(1)}秒だけ（${BZ.hold}秒必要）`:'約2275Hz の音がありませんでした',top,false);
+};
+
+// ===== タブ =====
+let cur='fire';
+// 焼成中の「焼く」画面は大きなカードが上にあるので、飾りの席をしまう
+function decoState(){document.body.classList.toggle('running',cur==='fire'&&!!act())}
+function show(t){if(t!=='set')earStop();cur=t;document.documentElement.style.setProperty('--tone',TONE[t]);
+  document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.t===t)));
+  ['fire','log','guide','set'].forEach(n=>$('p-'+n).hidden=n!==t);decoState();$('gear').textContent=t==='set'?'閉じる':'設定';$('gear').setAttribute('aria-pressed',String(t==='set'));try{localStorage.setItem(NS+'tab3',t)}catch(e){}window.scrollTo(0,0)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>show(b.dataset.t));
+$('gear').onclick=()=>show(cur==='set'?'fire':'set');
+function renderAll(){renderFire();renderLog();renderGuide();renderPeople();renderPrograms();renderRequests()}
+// ===== 保存先（スプレッドシート）とのやりとり =====
+// 変更はまず端末に置き、順番に送る。送れなかった分は端末に残して、あとで送り直す。
+const CFGK=NS+'cfg',QK=NS+'queue';
+let CFG=null;try{CFG=JSON.parse(localStorage.getItem(CFGK))}catch(e){}
+let Q=[];try{Q=JSON.parse(localStorage.getItem(QK))||[]}catch(e){}
+const saveQ=()=>{try{localStorage.setItem(QK,JSON.stringify(Q))}catch(e){}};
+async function api(body){
+  const r=await fetch(CFG.url,{method:'POST',body:JSON.stringify(Object.assign({},body,{key:CFG.key}))});
+  const d=await r.json();if(!d.ok)throw new Error(d.error||'error');return d}
+const syncState=t=>{$('sync').textContent=t};
+function sync(req){Q.push(req);saveQ();flush()}
+let flushing=false,retry=null;
+async function flush(){
+  if(flushing||!CFG)return;flushing=true;clearTimeout(retry);let last=null;
+  try{while(Q.length){syncState('保存中…');last=await api(Q[0]);Q.shift();saveQ()}
+    if(last&&last.data)applyServer(last.data);syncState('保存済み')}
+  catch(e){
+    // 保存先が古い（修正依頼などを知らない）ときは、その1件だけあきらめて残りを送る
+    if(e.message==='unknown_action'){Q.shift();saveQ();flushing=false;syncState('保存先が古い');setTimeout(flush,0);return}
+    syncState(e.message==='bad_key'?'合言葉ちがい':'まだ送れていません');retry=setTimeout(flush,30000)}
+  finally{flushing=false}}
+async function pull(){
+  if(!CFG)return;if(Q.length){flush();return}
+  try{const d=await api({a:'load'});if(Q.length||flushing)return;applyServer(d.data);syncState('保存済み')}
+  catch(e){syncState(e.message==='bad_key'?'合言葉ちがい':'オフライン')}}
+function applyServer(d){
+  S.firings=d.firings||[];S.progs=d.progs||[];S.requests=d.requests||[];S.people=(d.people&&d.people.length)?d.people:['自分'];
+  if(S.active&&!S.firings.some(f=>f.id===S.active))S.active=null;
+  if(!S.active){const o=S.firings.find(f=>!f.closed&&!f.rec&&f.start&&Date.now()-f.start<36*3600e3);if(o)S.active=o.id}
+  save();refreshProgs();
+  if(F.step>0||L.step>0||PE||RE){renderGuide();renderPeople();renderPrograms();renderRequests()}else{L={step:0};renderAll()}}
+
+// ===== はじめにつなぐ =====
+function showSetup(){document.querySelectorAll('section.panel').forEach(x=>x.hidden=x.id!=='p-setup');
+  document.querySelector('nav').hidden=true;$('gearBox').hidden=true;syncState('未接続')}
+$('cfgGo').onclick=async()=>{
+  const url=$('cfgUrl').value.trim(),key=$('cfgKey').value.trim(),m=$('cfgMsg');
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)){m.textContent='URL を確かめてください（https://script.google.com/macros/s/…/exec）';return}
+  if(!key){m.textContent='合言葉を入れてください。';return}
+  m.textContent='つないでいます…';CFG={url,key};
+  try{await api({a:'ping'});try{localStorage.setItem(CFGK,JSON.stringify(CFG))}catch(e){}m.textContent='';start();peek('つながったよ！','var(--aqua)','happy')}
+  catch(e){CFG=null;m.textContent=e.message==='bad_key'?'合言葉がちがいます。':'つなげませんでした。URL とネットを確かめてください。'}};
+let cfgArm=false;
+$('cfgReset').onclick=e=>{if(!cfgArm){cfgArm=true;e.target.textContent='本当につなぎ直す（この端末の控えも消えます）';return}
+  try{[CFGK,QK,KEY].forEach(k=>localStorage.removeItem(k))}catch(x){}CFG=null;Q=[];S=seed();refreshProgs();cfgArm=false;e.target.textContent='つなぎ直す';showSetup()};
+{const hp=new URLSearchParams(location.hash.slice(1));if(hp.get('u')){$('cfgUrl').value=hp.get('u');history.replaceState(null,'',location.pathname+location.search)}}
+
+let first='fire';try{first=localStorage.getItem(NS+'tab3')||'fire'}catch(e){}
+function start(){
+  $('p-setup').hidden=true;document.querySelector('nav').hidden=false;$('gearBox').hidden=false;
+  $('cfgInfo').textContent=`スプレッドシートにつながっています（…${CFG.url.slice(-14,-5)}）`;
+  renderAll();show(first);syncState(Q.length?'まだ送れていません':'読み込み中…');pull();
+  setTimeout(()=>{if(cur==='fire'&&!act())peek('こんにちは。今日も焼く？','var(--lemon)','happy')},900);
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')pull()});
+setInterval(()=>{if(document.visibilityState==='visible')pull()},60000);
+if(CFG)start();else showSetup();
+</script>
+</body>
+</html>
